@@ -211,19 +211,17 @@ export const useInterviewStore = create<InterviewState>((set, get) => ({
     try {
       set({ status: "ending" });
 
-      const feedbackContent = await generateInterviewFeedback(
-        // resumeText,
-        // jobDescriptionText,
-        messages
-      );
+      const feedbackContent = await generateInterviewFeedback(messages);
 
-      await supabase
-        .from("interviews")
-        .update({
-          status: "completed",
-          feedback: sanitizeText(feedbackContent),
-        })
-        .eq("id", interviewId);
+      await supabase.from("interviews").insert({
+        title: "Interview Summary",
+        content: "Interview completed successfully.",
+        status: "completed",
+        feedback: sanitizeText(feedbackContent),
+        resume_text: sanitizeText(resumeText),
+        job_description: sanitizeText(jobDescriptionText),
+        messages: JSON.stringify(messages),
+      });
 
       set({
         status: "completed",

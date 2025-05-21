@@ -1,4 +1,3 @@
-// interview-service.ts
 import { TextGeneration } from "deepinfra";
 import { formatHistory, handleGenerationError, sanitizeInput } from "./utils";
 
@@ -23,12 +22,12 @@ export async function generateInitialQuestion(
   try {
     if (!API_KEY) throw new Error("API key not configured");
 
-    const maxLength = 3000;
+    const Lengthmax = 3000;
     const truncateText = (text: string, max: number) =>
       text.length > max ? text.slice(0, max) + "..." : text;
 
-    const sanitizedResume = truncateText(sanitizeInput(resumeText), maxLength);
-    const sanitizedJD = truncateText(sanitizeInput(jobDescription), maxLength);
+    const sanitizedResume = truncateText(sanitizeInput(resumeText), Lengthmax);
+    const sanitizedJD = truncateText(sanitizeInput(jobDescription), Lengthmax);
 
     const prompt = `
 You are an AI interviewer. Based on the candidate's resume and job description, generate ONE concise, professional interview question. 
@@ -53,7 +52,15 @@ Output only the question.
     const body = { input: prompt };
     const output = await client.generate(body);
     const question = output.results[0]?.generated_text.trim();
-    return question || "Let's begin. Tell me about yourself.";
+
+    const cleanedQuestion = question
+      ?.replace(/```[\s\S]*?```/g, "")
+      .replace(/[-]+/g, "")
+      .replace(/^\s*[-*]\s*/gm, "")
+      .replace(/<\|.*?\|>/g, "")
+      .trim();
+
+    return cleanedQuestion || "Let's begin. Tell me about yourself.";
   } catch (error: any) {
     handleGenerationError(error);
     return "Let's begin. Tell me about yourself.";
@@ -73,7 +80,6 @@ export async function generateFollowUpQuestion(
     const sanitizedResume = truncate(sanitizeInput(resumeText), maxLength);
     const sanitizedJD = truncate(sanitizeInput(jobDescription), maxLength);
 
-    // Limit conversation history to last N messages
     const limitedHistory = conversationHistory.slice(-10);
 
     const historyStr = formatHistory(limitedHistory);
@@ -121,12 +127,17 @@ Generate your next question:<|eot_id|>`;
 }
 
 export async function generateInterviewFeedback(
-  // resumeText: string,
-  // jobDescription: string,
   conversationHistory: ConversationMessage[]
 ): Promise<string> {
   try {
-    const limitedHistory = conversationHistory.slice(-20);
+    const filteredHistory = conversationHistory.filter(
+      (msg) => msg.role === "user" && msg.content.trim().length > 10
+    );
+    if (filteredHistory.length === 0) {
+      return "Not enough information was provided to generate feedback. Please answer the questions in detail.";
+    }
+
+    const limitedHistory = filteredHistory.slice(-20);
     const historyStr = formatHistory(limitedHistory);
 
     const prompt = `
